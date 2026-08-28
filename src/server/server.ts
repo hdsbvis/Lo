@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import { networkInterfaces } from 'node:os';
 import { readFileSync, existsSync } from 'node:fs';
 import { resolve, join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -61,10 +62,41 @@ function json(res: import('node:http').ServerResponse, status: number, body: unk
   res.end(payload);
 }
 
-export function serve(port = config.port): void {
+/** Non-internal IPv4 addresses, so the startup banner can print a URL to type. */
+function lanAddresses(): string[] {
+  const out: string[] = [];
+  for (const rows of Object.values(networkInterfaces())) {
+    for (const r of rows ?? []) {
+      if (r.family === 'IPv4' && !r.internal) out.push(r.address);
+    }
+  }
+  return out;
+}
+
+/**
+ * Constant-time-ish comparison. The token is short and the endpoint is not a
+ * high-value target, but there is no reason to leak length or prefix timing.
+ */
+function tokenMatches(given: string | null): boolean {
+  const expected = config.authToken;
+  if (!expected) return true;
+  if (!given || given.length !== expected.length) return false;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ given.charCodeAt(i);
+  return diff === 0;
+}
+
+export function serve(port = config.port, host = config.host): void {
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', `http://localhost:${port}`);
     const path = url.pathname;
+
+    // The token gates everything, including the page itself, so a stray visitor
+    // on the same network gets nothing rather than a working scanner.
+    if (config.authToken && !tokenMatches(url.searchParams.get('k'))) {
+      res.writeHead(401, { 'content-type': 'text/plain' }).end('unauthorized');
+      return;
+    }
 
     try {
       if (path === '/api/scan') {
@@ -124,9 +156,20 @@ export function serve(port = config.port): void {
     }
   });
 
-  server.listen(port, () => {
-    log.info(`\n  ${c.bold('rugwatch dashboard')}  ${c.cyan(`http://localhost:${port}`)}\n`);
-    log.info(c.grey('  The dashboard re-scans on demand and caches for 90s.'));
-    log.info(c.grey('  Ctrl-C to stop.\n'));
+  server.listen(port, host, () => {
+    const q = config.authToken ? `?k=${config.authToken}` : '';
+    log.info(`\n  ${c.bold('rugwatch dashboard')}`);
+    log.info(`  on this machine   ${c.cyan(`http://localhost:${port}${q}`)}`);
+
+    if (host === '0.0.0.0' || host === '::') {
+      for (const ip of lanAddresses()) {
+        log.info(`  from your phone   ${c.cyan(`http://${ip}:${port}${q}`)}`);
+      }
+      if (!config.authToken) {
+        log.info(c.yellow('\n  Reachable by anyone on this network. Set AUTH_TOKEN in .env to require a key,'));
+        log.info(c.yellow('  or HOST=127.0.0.1 to keep it on this machine only.'));
+      }
+    }
+    log.info(c.grey('\n  Re-scans on demand, caches for 90s. Ctrl-C to stop.\n'));
   });
 }

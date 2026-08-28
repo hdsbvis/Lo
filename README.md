@@ -178,6 +178,51 @@ at all. `test/providers.test.ts` guards against a regression.
 
 ---
 
+## Using it from an iPhone
+
+You cannot practically run this *on* iOS — there is no usable Node runtime on
+iPhone. What you do instead is run it on a computer and open the dashboard in
+Safari. The dashboard is built for that: below 640px the results table becomes
+cards, and it can be added to the home screen as a standalone app.
+
+**Same Wi-Fi (the normal case).** Start the server on your Mac or PC:
+
+```bash
+npm run serve
+```
+
+It prints the exact URL to type into Safari:
+
+```
+  on this machine   http://localhost:8787
+  from your phone   http://192.168.1.42:8787
+```
+
+Type that second one on the phone. Both devices must be on the same network,
+and the computer has to stay awake — on a Mac, `caffeinate -s npm run serve`
+keeps it from sleeping.
+
+**Add to Home Screen.** In Safari, Share → Add to Home Screen. It launches
+without browser chrome and keeps its own access key, so it behaves like an app.
+
+**Set a key if the network is not yours.** The dashboard binds to all
+interfaces so the phone can reach it, which means anyone else on that Wi-Fi can
+too. Put `AUTH_TOKEN=something-long` in `.env` and every request needs
+`?k=something-long`; the printed URL includes it and the home-screen shortcut
+remembers it. Or set `HOST=127.0.0.1` to keep it on the machine only.
+
+**Away from home.** Two options that do not involve opening a port on your
+router:
+
+- [Tailscale](https://tailscale.com) on both devices, then use the computer's
+  Tailscale IP. This is the one to pick — private, no public URL.
+- `cloudflared tunnel --url http://localhost:8787` gives a temporary public
+  HTTPS URL. Set `AUTH_TOKEN` first; it is reachable by anyone who has the link.
+
+**Always-on.** If you want scanning to continue when your laptop is shut, put it
+on a small VPS or a Fly.io/Railway instance and use `watch` alongside `serve`.
+Nothing in the app requires a keyed API, so a $5 box is enough.
+
 ## Commands
 
 ```

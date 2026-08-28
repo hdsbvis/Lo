@@ -29,6 +29,17 @@ export const config = {
   solanaRpcUrl: process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
   xBearerToken: process.env.X_BEARER_TOKEN || '',
   port: num('PORT', 8787),
+  /**
+   * Interface the dashboard binds to. Defaults to all interfaces so a phone on
+   * the same Wi-Fi can reach it; set HOST=127.0.0.1 to keep it on this machine.
+   */
+  host: process.env.HOST || '0.0.0.0',
+  /**
+   * Optional shared secret for the dashboard. When set, every request must
+   * carry ?k=<token> (the UI remembers it). Worth setting on any network you
+   * do not control.
+   */
+  authToken: process.env.AUTH_TOKEN || '',
 
   discovery: {
     /** Default market-cap window for "low MC". Overridable per invocation. */

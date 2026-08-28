@@ -2,8 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>rugwatch</title>
+<!-- Added to the iOS home screen this runs standalone, without Safari chrome. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="rugwatch">
+<meta name="theme-color" content="#0b0d12">
+<meta name="color-scheme" content="dark">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>🛟</text></svg>">
 <style>
   :root{
@@ -60,6 +66,48 @@
   .tier.RETAIL,.tier.NOBODY{background:#262b38;color:var(--dim)}
   .tier.BOT{background:#4a1119;color:var(--red)}
   .empty{padding:40px 20px;text-align:center;color:var(--faint)}
+
+  /* Phone layout.
+     The seven-column results table clips below ~640px, so each row becomes a
+     card via grid areas. Same markup, no second renderer. */
+  @media(max-width:640px){
+    header{padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));gap:8px}
+    h1{font-size:14px;width:100%}
+    h1 span{display:none}
+    .controls{margin-left:0;width:100%;gap:6px}
+    #q{flex:1 1 140px;min-width:0}
+    #chains{flex:1 1 auto}
+    #maxMc{flex:0 1 90px}
+    #detail{padding:14px calc(14px + env(safe-area-inset-right,0px)) 40px
+            calc(14px + env(safe-area-inset-left,0px))}
+    thead{display:none}
+    table,tbody,tr,td{display:block}
+    tbody tr{
+      display:grid;
+      grid-template-columns:1fr 1fr auto;
+      grid-template-areas:"tok tok ver" "scr scr scr" "mc liq age" "fin fin fin";
+      gap:4px 8px;
+      padding:11px 13px;
+      border-bottom:1px solid var(--line);
+    }
+    tbody tr.sel{box-shadow:inset 3px 0 0 var(--cyan)}
+    td{border:none;padding:0}
+    td:nth-child(1){grid-area:tok}
+    td:nth-child(2){grid-area:ver;justify-self:end}
+    td:nth-child(3){grid-area:scr;text-align:left;display:flex;align-items:center;gap:8px}
+    td:nth-child(3) .bar{flex:1}
+    td:nth-child(4){grid-area:mc}
+    td:nth-child(5){grid-area:liq}
+    td:nth-child(6){grid-area:age}
+    td:nth-child(7){grid-area:fin}
+    td:nth-child(n+4):nth-child(-n+6){text-align:left}
+    /* label the bare numbers now that the header row is gone */
+    td[data-label]::before{
+      content:attr(data-label);color:var(--faint);font-size:10px;
+      text-transform:uppercase;letter-spacing:.6px;display:block;
+      font-family:-apple-system,system-ui,sans-serif;
+    }
+  }
   .spin{display:inline-block;width:11px;height:11px;border:2px solid var(--faint);
     border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-1px}
   @keyframes sp{to{transform:rotate(360deg)}}
@@ -127,6 +175,23 @@
 const $ = (s) => document.querySelector(s);
 let rows = [], selected = null, timer = null;
 
+// When the server runs with AUTH_TOKEN set, every request needs ?k=<token>.
+// It arrives in the URL the server prints; keep it on each fetch and stash it
+// so an installed home-screen shortcut keeps working after a cold start.
+const AUTH_KEY = (() => {
+  const fromUrl = new URLSearchParams(location.search).get('k');
+  try {
+    if (fromUrl) { localStorage.setItem('rugwatch.k', fromUrl); return fromUrl; }
+    return localStorage.getItem('rugwatch.k') ?? '';
+  } catch { return fromUrl ?? ''; }
+})();
+const api = (path, params = {}) => {
+  const p = new URLSearchParams(params);
+  if (AUTH_KEY) p.set('k', AUTH_KEY);
+  const qs = p.toString();
+  return path + (qs ? '?' + qs : '');
+};
+
 const usd = (v) => v == null ? '—'
   : v >= 1e9 ? '$' + (v/1e9).toFixed(2) + 'B'
   : v >= 1e6 ? '$' + (v/1e6).toFixed(2) + 'M'
@@ -150,9 +215,9 @@ function renderList() {
       <td><span class="badge ${s.verdict}">${s.verdict.replace('_',' ')}</span></td>
       <td class="num" style="color:${scoreColor(s.score)}">${s.score}
           <div class="bar"><i style="width:${s.score}%;background:${scoreColor(s.score)}"></i></div></td>
-      <td class="num">${usd(m.marketCapUsd)}</td>
-      <td class="num">${m.liquidityUsd == null ? '<span class="unk">n/r</span>' : usd(m.liquidityUsd)}</td>
-      <td class="num">${age(m.ageMinutes)}</td>
+      <td class="num" data-label="MC">${usd(m.marketCapUsd)}</td>
+      <td class="num" data-label="Liq">${m.liquidityUsd == null ? '<span class="unk">n/r</span>' : usd(m.liquidityUsd)}</td>
+      <td class="num" data-label="Age">${age(m.ageMinutes)}</td>
       <td style="color:var(--dim);font-size:12px">${esc(why)} ${social}</td>
     </tr>`;
   }).join('');
@@ -250,7 +315,7 @@ async function drawSpark(t) {
   const cv = $('#spark');
   if (!cv) return;
   try {
-    const r = await fetch(`/api/history?chain=${encodeURIComponent(t.chain)}&address=${encodeURIComponent(t.address)}`);
+    const r = await fetch(api('/api/history', { chain: t.chain, address: t.address }));
     const { history } = await r.json();
     const pts = (history ?? []).slice(-80);
     const dpr = window.devicePixelRatio || 1;
@@ -283,10 +348,10 @@ async function doScan() {
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span> scanning';
   $('#list').innerHTML = '<div class="empty"><span class="spin"></span> sweeping discovery feeds and checking every candidate…</div>';
   try {
-    const p = new URLSearchParams({ force: '1', limit: '20' });
-    if ($('#chains').value) p.set('chains', $('#chains').value);
-    if ($('#maxMc').value) p.set('maxMc', $('#maxMc').value);
-    const r = await fetch('/api/scan?' + p);
+    const params = { force: '1', limit: '20' };
+    if ($('#chains').value) params.chains = $('#chains').value;
+    if ($('#maxMc').value) params.maxMc = $('#maxMc').value;
+    const r = await fetch(api('/api/scan', params));
     const d = await r.json();
     rows = d.rows ?? []; selected = null;
     renderList();
@@ -302,7 +367,7 @@ async function doCheck() {
   if (!q) return;
   $('#detail').innerHTML = '<div class="empty"><span class="spin"></span> checking…</div>';
   try {
-    const r = await fetch('/api/check?q=' + encodeURIComponent(q));
+    const r = await fetch(api('/api/check', { q }));
     const d = await r.json();
     if (d.error) { $('#detail').innerHTML = `<div class="empty">${esc(d.error)}</div>`; return; }
     rows = [d, ...rows.filter(x => x.token.address !== d.token.address)];
