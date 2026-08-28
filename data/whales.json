@@ -1,0 +1,31 @@
+{
+  "_comment": [
+    "Curated roster of accounts whose posts carry weight. THIS IS A STARTING POINT --",
+    "you are expected to edit it. The app treats roster membership as the strongest",
+    "signal it has about who is talking, so a stale or padded roster degrades the",
+    "whole social layer.",
+    "",
+    "tier:      WHALE | KOL | ALPHA | RETAIL | BOT",
+    "followers: optional; omit rather than guess. Only used as a tiebreak.",
+    "wallets:   optional on-chain addresses. When present, the app cross-checks the",
+    "           token's top holders and tells you whether they actually bought or",
+    "           are only posting. That distinction is the entire point.",
+    "trackRecord: optional 0-1, your own hit rate for this account. Unset = unweighted."
+  ],
+  "roster": [
+    { "handle": "blknoiz06",     "tier": "WHALE", "note": "Ansem" },
+    { "handle": "cobie",         "tier": "WHALE" },
+    { "handle": "hsakatrades",   "tier": "WHALE" },
+    { "handle": "pentosh1",      "tier": "WHALE" },
+    { "handle": "cryptokaleo",   "tier": "KOL" },
+    { "handle": "frankdegods",   "tier": "KOL" },
+    { "handle": "notthreadguy",  "tier": "KOL" },
+    { "handle": "0xngmi",        "tier": "ALPHA", "note": "DefiLlama; useful for contract-level takes" },
+    { "handle": "zachxbt",       "tier": "ALPHA", "note": "On-chain investigator. A post here is usually a warning, not a call." }
+  ],
+  "_negativeSignals": [
+    "Handles listed here are treated as adversarial coverage: a mention from",
+    "zachxbt is weighted as a RISK increase, not an endorsement."
+  ],
+  "warnAccounts": ["zachxbt"]
+}

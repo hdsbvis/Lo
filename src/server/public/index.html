@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>rugwatch</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>🛟</text></svg>">
+<style>
+  :root{
+    --bg:#0b0d12; --panel:#12151d; --panel2:#171b25; --line:#232838;
+    --fg:#e6e9f0; --dim:#8b94a8; --faint:#5b6479;
+    --red:#ff4d5e; --amber:#ffb020; --green:#2fd98f; --cyan:#4dc4ff; --violet:#a78bfa;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif}
+  header{display:flex;align-items:center;gap:16px;padding:14px 20px;
+    border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:10;flex-wrap:wrap}
+  h1{font-size:15px;margin:0;letter-spacing:.5px;font-weight:700}
+  h1 span{color:var(--faint);font-weight:400}
+  .controls{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
+  input,select,button{background:var(--panel2);border:1px solid var(--line);color:var(--fg);
+    border-radius:6px;padding:6px 10px;font:inherit;font-size:13px}
+  input:focus,select:focus{outline:1px solid var(--cyan);border-color:var(--cyan)}
+  button{cursor:pointer;transition:.12s}
+  button:hover{background:#1e2432;border-color:#39405a}
+  button.primary{background:var(--cyan);color:#04121c;border-color:var(--cyan);font-weight:600}
+  button.primary:hover{filter:brightness(1.1)}
+  button:disabled{opacity:.5;cursor:default}
+  main{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:0;height:calc(100vh - 57px)}
+  @media(max-width:1000px){main{grid-template-columns:1fr;height:auto}#detail{border-left:none;border-top:1px solid var(--line)}}
+  #list{overflow:auto;padding:0}
+  #detail{border-left:1px solid var(--line);overflow:auto;padding:18px;background:var(--panel)}
+  table{width:100%;border-collapse:collapse}
+  th{position:sticky;top:0;background:var(--panel);text-align:left;font-size:11px;
+    text-transform:uppercase;letter-spacing:.8px;color:var(--faint);padding:9px 12px;
+    border-bottom:1px solid var(--line);font-weight:600;white-space:nowrap}
+  td{padding:9px 12px;border-bottom:1px solid #1a1e29;vertical-align:middle}
+  tbody tr{cursor:pointer}
+  tbody tr:hover{background:#161b26}
+  tbody tr.sel{background:#1a2130;box-shadow:inset 2px 0 0 var(--cyan)}
+  .sym{font-weight:650}
+  .addr{font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10.5px;
+    font-weight:700;letter-spacing:.5px;white-space:nowrap}
+  .AVOID{background:var(--red);color:#fff}
+  .DANGER{background:#5c1620;color:var(--red);border:1px solid var(--red)}
+  .HIGH_RISK{background:#4a3410;color:var(--amber);border:1px solid #8a6620}
+  .ELEVATED_RISK{background:#3a3a12;color:#e8d44d;border:1px solid #7a7420}
+  .WATCH{background:#0d3d2a;color:var(--green);border:1px solid #1f7a55}
+  .UNRATED{background:#262b38;color:var(--dim);border:1px solid var(--line)}
+  .num{font-family:var(--mono);font-size:12.5px;text-align:right;white-space:nowrap}
+  .bar{height:5px;border-radius:3px;background:#242938;overflow:hidden;min-width:52px}
+  .bar>i{display:block;height:100%;border-radius:3px}
+  .tier{font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;letter-spacing:.4px}
+  .tier.WHALE{background:var(--green);color:#031a10}
+  .tier.KOL{background:#0d3d2a;color:var(--green)}
+  .tier.ALPHA{background:#0b3244;color:var(--cyan)}
+  .tier.RETAIL,.tier.NOBODY{background:#262b38;color:var(--dim)}
+  .tier.BOT{background:#4a1119;color:var(--red)}
+  .empty{padding:40px 20px;text-align:center;color:var(--faint)}
+  .spin{display:inline-block;width:11px;height:11px;border:2px solid var(--faint);
+    border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-1px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  /* detail panel */
+  .dh{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .dh h2{margin:0;font-size:19px}
+  .meta{color:var(--dim);font-size:12px;margin:8px 0 0;font-family:var(--mono)}
+  .meta a{color:var(--cyan)}
+  .sec{margin-top:20px}
+  .sec>h3{font-size:11px;text-transform:uppercase;letter-spacing:.9px;color:var(--faint);
+    margin:0 0 9px;font-weight:600}
+  .find{padding:8px 10px;border-radius:6px;background:var(--panel2);margin-bottom:6px;
+    border-left:3px solid var(--line)}
+  .find.veto{border-left-color:var(--red);background:#1e1114}
+  .find.shock{border-left-color:var(--red);background:#24121a}
+  .find.critical,.find.high{border-left-color:var(--amber)}
+  .find.medium{border-left-color:#7a7420}
+  .find.positive{border-left-color:var(--green)}
+  .find b{font-weight:600;font-size:13px}
+  .find p{margin:3px 0 0;color:var(--dim);font-size:12px;line-height:1.45}
+  .w{float:right;font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;font-size:12.5px}
+  .kv dt{color:var(--faint)}
+  .kv dd{margin:0;font-family:var(--mono)}
+  .unk{color:var(--amber)}
+  .bad{color:var(--red)} .good{color:var(--green)}
+  .note{font-size:12px;color:var(--dim);background:var(--panel2);padding:9px 11px;
+    border-radius:6px;border-left:3px solid var(--faint)}
+  .disclaim{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);
+    font-size:11.5px;color:var(--faint);line-height:1.6}
+  #spark{width:100%;height:52px;display:block}
+</style>
+</head>
+<body>
+<header>
+  <h1>rugwatch <span>low-cap memecoin risk scanner</span></h1>
+  <div class="controls">
+    <input id="q" placeholder="address or symbol…" size="24">
+    <button id="checkBtn">Check</button>
+    <select id="chains">
+      <option value="">all chains</option>
+      <option value="solana">solana</option>
+      <option value="base">base</option>
+      <option value="ethereum">ethereum</option>
+      <option value="bsc">bsc</option>
+    </select>
+    <input id="maxMc" type="number" placeholder="max MC" value="300000" size="8" style="width:100px">
+    <label style="font-size:12px;color:var(--dim)">
+      <input type="checkbox" id="auto" style="vertical-align:-2px"> auto
+    </label>
+    <button id="scanBtn" class="primary">Scan</button>
+  </div>
+</header>
+
+<main>
+  <div id="list">
+    <div class="empty">Hit <b>Scan</b> to sweep the discovery feeds for low-cap launches.</div>
+  </div>
+  <div id="detail">
+    <div class="empty">Select a token.</div>
+  </div>
+</main>
+
+<script>
+const $ = (s) => document.querySelector(s);
+let rows = [], selected = null, timer = null;
+
+const usd = (v) => v == null ? '—'
+  : v >= 1e9 ? '$' + (v/1e9).toFixed(2) + 'B'
+  : v >= 1e6 ? '$' + (v/1e6).toFixed(2) + 'M'
+  : v >= 1e3 ? '$' + (v/1e3).toFixed(1) + 'k'
+  : '$' + v.toFixed(0);
+const age = (m) => m == null ? '—' : m < 60 ? m.toFixed(0)+'m' : m < 1440 ? (m/60).toFixed(1)+'h' : (m/1440).toFixed(0)+'d';
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, ch =>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const scoreColor = (s) => s >= 75 ? 'var(--green)' : s >= 55 ? '#e8d44d' : s >= 35 ? 'var(--amber)' : 'var(--red)';
+
+function renderList() {
+  if (!rows.length) { $('#list').innerHTML = '<div class="empty">Nothing matched the filters.</div>'; return; }
+  const body = rows.map((a, i) => {
+    const s = a.safety, m = a.market, t = a.token;
+    const social = a.social.status === 'OK' && a.social.topTier
+      ? `<span class="tier ${a.social.topTier}">${a.social.topTier}</span>` : '';
+    const why = s.vetoes[0]?.title ?? (s.signals.find(x => x.weight > 8)?.title ?? '');
+    return `<tr data-i="${i}" class="${selected === i ? 'sel' : ''}">
+      <td><div class="sym">${esc(t.symbol ?? t.address.slice(0,6))}</div>
+          <div class="addr">${esc(t.chain)}</div></td>
+      <td><span class="badge ${s.verdict}">${s.verdict.replace('_',' ')}</span></td>
+      <td class="num" style="color:${scoreColor(s.score)}">${s.score}
+          <div class="bar"><i style="width:${s.score}%;background:${scoreColor(s.score)}"></i></div></td>
+      <td class="num">${usd(m.marketCapUsd)}</td>
+      <td class="num">${m.liquidityUsd == null ? '<span class="unk">n/r</span>' : usd(m.liquidityUsd)}</td>
+      <td class="num">${age(m.ageMinutes)}</td>
+      <td style="color:var(--dim);font-size:12px">${esc(why)} ${social}</td>
+    </tr>`;
+  }).join('');
+  $('#list').innerHTML = `<table><thead><tr>
+    <th>Token</th><th>Verdict</th><th style="text-align:right">Score</th>
+    <th style="text-align:right">MC</th><th style="text-align:right">Liq</th>
+    <th style="text-align:right">Age</th><th>Top finding</th></tr></thead><tbody>${body}</tbody></table>`;
+  $('#list').querySelectorAll('tr[data-i]').forEach(tr =>
+    tr.onclick = () => { selected = +tr.dataset.i; renderList(); renderDetail(rows[selected]); });
+}
+
+function tri(v) {
+  if (v === 'unknown' || v == null) return '<span class="unk">unknown</span>';
+  if (v === true) return '<span class="bad">yes</span>';
+  if (v === false) return '<span class="good">no</span>';
+  return esc(typeof v === 'number' ? v.toFixed(1) : v);
+}
+
+function renderDetail(a) {
+  if (!a) return;
+  const s = a.safety, f = a.facts, m = a.market, t = a.token, so = a.social;
+
+  const shocks = s.shocks.length ? `<div class="sec"><h3>Changed since last check</h3>` +
+    s.shocks.map(x => `<div class="find shock"><b>▼ ${esc(x.title)}</b><p>${esc(x.detail)}</p></div>`).join('') + `</div>` : '';
+
+  const vetoes = s.vetoes.length ? `<div class="sec">
+    <h3>${s.vetoes.length} disqualifying finding${s.vetoes.length>1?'s':''}</h3>` +
+    s.vetoes.map(v => `<div class="find veto"><b>✗ ${esc(v.title)}</b><p>${esc(v.detail)}</p></div>`).join('') + `</div>` : '';
+
+  const sig = s.signals.filter(x => Math.abs(x.weight) >= 3);
+  const findings = sig.length ? `<div class="sec"><h3>Findings</h3>` + sig.map(g =>
+    `<div class="find ${g.severity}"><span class="w">${g.weight < 0 ? '+' : '−'}${Math.abs(g.weight).toFixed(0)}</span>
+     <b>${esc(g.title)}</b><p>${esc(g.detail)}</p></div>`).join('') + `</div>` : '';
+
+  let socialHtml;
+  if (so.status !== 'OK') {
+    socialHtml = `<div class="note">${esc(so.summary)}</div>`;
+  } else {
+    const coord = so.coordinated ? `<div class="find veto"><b>Coordinated campaign</b>
+      <p>${so.coordinated.clusterSize} accounts posted ${(so.coordinated.medianSimilarity*100).toFixed(0)}%
+      identical copy within ${so.coordinated.windowMinutes} minutes.</p></div>` : '';
+    socialHtml = coord + so.mentions.slice(0, 8).map(x => `<div class="find">
+      <span class="tier ${x.tier}">${x.tier}</span> <b>@${esc(x.mention.handle)}</b>
+      ${x.holdsToken ? `<span class="good" style="font-size:11px">holds ${x.holdsToken.pct.toFixed(2)}%</span>` : ''}
+      <span class="w">cred ${(x.credibility*100).toFixed(0)}%</span>
+      <p>${esc(x.reasons[0] ?? '')}</p></div>`).join('')
+      + `<div class="note" style="margin-top:8px">${esc(so.summary)}</div>`;
+  }
+
+  const failed = s.providers.filter(p => !p.ok);
+
+  $('#detail').innerHTML = `
+    <div class="dh"><h2>${esc(t.symbol ?? 'unknown')}</h2>
+      <span class="badge ${s.verdict}">${s.verdict.replace('_',' ')}</span>
+      <span style="margin-left:auto;font-family:var(--mono);font-size:20px;color:${scoreColor(s.score)}">${s.score}<span style="font-size:12px;color:var(--faint)">/100</span></span>
+    </div>
+    <div class="meta">${esc(t.name ?? '')}<br>${esc(t.address)}
+      ${m.url ? `<br><a href="${esc(m.url)}" target="_blank" rel="noopener">chart ↗</a>` : ''}</div>
+    <div class="meta" style="color:var(--faint)">confidence ${(s.confidence*100).toFixed(0)}%
+      · ${s.providers.filter(p=>p.ok).length}/${s.providers.length} providers · data age ${s.dataAgeSec}s
+      ${s.rawScore !== s.score ? `· raw ${s.rawScore} → ${s.score}` : ''}</div>
+    <canvas id="spark"></canvas>
+    ${shocks}${vetoes}
+    <div class="sec"><h3>Market</h3><dl class="kv">
+      <dt>Market cap</dt><dd>${usd(m.marketCapUsd)}</dd>
+      <dt>Liquidity</dt><dd>${m.liquidityUsd == null ? '<span class="unk">not reported</span>' : usd(m.liquidityUsd)}</dd>
+      <dt>24h volume</dt><dd>${usd(m.volume.h24)}</dd>
+      <dt>Age</dt><dd>${age(m.ageMinutes)}</dd>
+      <dt>1h change</dt><dd>${m.priceChange.h1 == null ? '—' : m.priceChange.h1.toFixed(1)+'%'}</dd>
+    </dl></div>
+    <div class="sec"><h3>Contract facts</h3><dl class="kv">
+      <dt>Honeypot</dt><dd>${tri(f.honeypot)}</dd>
+      <dt>Mint authority</dt><dd>${tri(f.mintAuthorityActive)}</dd>
+      <dt>Freeze authority</dt><dd>${tri(f.freezeAuthorityActive)}</dd>
+      <dt>LP locked</dt><dd>${f.lpLockedPct === 'unknown' ? '<span class="unk">unknown</span>' : f.lpLockedPct.toFixed(0)+'%'}</dd>
+      <dt>Top holder</dt><dd>${f.topHolderPct === 'unknown' ? '<span class="unk">unknown</span>' : f.topHolderPct.toFixed(1)+'%'}</dd>
+      <dt>Top 10</dt><dd>${f.top10Pct === 'unknown' ? '<span class="unk">unknown</span>' : f.top10Pct.toFixed(1)+'%'}</dd>
+      <dt>Holders</dt><dd>${f.holderCount === 'unknown' ? '<span class="unk">unknown</span>' : f.holderCount.toLocaleString()}</dd>
+      <dt>Sell tax</dt><dd>${f.sellTaxPct === 'unknown' ? '<span class="unk">unknown</span>' : f.sellTaxPct.toFixed(1)+'%'}</dd>
+      <dt>Insiders</dt><dd>${tri(f.insiderNetworkDetected)}</dd>
+    </dl></div>
+    ${findings}
+    <div class="sec"><h3>Who is talking</h3>${socialHtml}</div>
+    ${failed.length ? `<div class="sec"><h3>Providers unavailable</h3><div class="note">${
+      failed.map(p => esc(p.name + ': ' + (p.error ?? '')).slice(0,140)).join('<br>')}</div></div>` : ''}
+    <p class="disclaim">A high score means the specific rug mechanisms checked here did not fire.
+    It is not a prediction and not advice. Most low-cap memecoins lose most of their value
+    regardless of contract hygiene, and this tool cannot see intent, off-chain coordination,
+    or a deployer who simply stops.</p>`;
+
+  drawSpark(t);
+}
+
+async function drawSpark(t) {
+  const cv = $('#spark');
+  if (!cv) return;
+  try {
+    const r = await fetch(`/api/history?chain=${encodeURIComponent(t.chain)}&address=${encodeURIComponent(t.address)}`);
+    const { history } = await r.json();
+    const pts = (history ?? []).slice(-80);
+    const dpr = window.devicePixelRatio || 1;
+    const w = cv.clientWidth || 380, h = 52;
+    cv.width = w * dpr; cv.height = h * dpr;
+    const ctx = cv.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, w, h);
+    if (pts.length < 2) {
+      ctx.fillStyle = '#5b6479'; ctx.font = '11px system-ui';
+      ctx.fillText(pts.length ? 'one reading so far — history builds as you re-scan' : 'no history yet', 0, 30);
+      return;
+    }
+    const t0 = pts[0].at, t1 = pts[pts.length-1].at || t0 + 1;
+    const x = (p) => ((p.at - t0) / Math.max(1, t1 - t0)) * (w - 2) + 1;
+    const y = (p) => h - 6 - (p.score / 100) * (h - 12);
+    ctx.strokeStyle = '#232838'; ctx.beginPath();
+    ctx.moveTo(0, y({score:75})); ctx.lineTo(w, y({score:75})); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x(pts[0]), y(pts[0]));
+    for (const p of pts.slice(1)) ctx.lineTo(x(p), y(p));
+    ctx.strokeStyle = scoreColor(pts[pts.length-1].score);
+    ctx.lineWidth = 1.6; ctx.stroke();
+    ctx.fillStyle = '#5b6479'; ctx.font = '10px system-ui';
+    ctx.fillText('score history', 0, 10);
+  } catch { /* history is a nicety, not a requirement */ }
+}
+
+async function doScan() {
+  const btn = $('#scanBtn');
+  btn.disabled = true; btn.innerHTML = '<span class="spin"></span> scanning';
+  $('#list').innerHTML = '<div class="empty"><span class="spin"></span> sweeping discovery feeds and checking every candidate…</div>';
+  try {
+    const p = new URLSearchParams({ force: '1', limit: '20' });
+    if ($('#chains').value) p.set('chains', $('#chains').value);
+    if ($('#maxMc').value) p.set('maxMc', $('#maxMc').value);
+    const r = await fetch('/api/scan?' + p);
+    const d = await r.json();
+    rows = d.rows ?? []; selected = null;
+    renderList();
+  } catch (e) {
+    $('#list').innerHTML = `<div class="empty">Scan failed: ${esc(e.message)}</div>`;
+  } finally {
+    btn.disabled = false; btn.textContent = 'Scan';
+  }
+}
+
+async function doCheck() {
+  const q = $('#q').value.trim();
+  if (!q) return;
+  $('#detail').innerHTML = '<div class="empty"><span class="spin"></span> checking…</div>';
+  try {
+    const r = await fetch('/api/check?q=' + encodeURIComponent(q));
+    const d = await r.json();
+    if (d.error) { $('#detail').innerHTML = `<div class="empty">${esc(d.error)}</div>`; return; }
+    rows = [d, ...rows.filter(x => x.token.address !== d.token.address)];
+    selected = 0; renderList(); renderDetail(d);
+  } catch (e) {
+    $('#detail').innerHTML = `<div class="empty">Check failed: ${esc(e.message)}</div>`;
+  }
+}
+
+$('#scanBtn').onclick = doScan;
+$('#checkBtn').onclick = doCheck;
+$('#q').addEventListener('keydown', e => { if (e.key === 'Enter') doCheck(); });
+$('#auto').onchange = (e) => {
+  clearInterval(timer);
+  if (e.target.checked) timer = setInterval(doScan, 120000);
+};
+</script>
+</body>
+</html>

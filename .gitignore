@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+*.log
+data/snapshots/
+data/cache/
+
+# Collected posts are yours; the example stays as documentation.
+data/mentions/*.json
+!data/mentions/example.json
